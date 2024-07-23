@@ -1,12 +1,15 @@
 from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi.responses import StreamingResponse
 import uvicorn
+
+from cloud import Storage, DataBase
 
 
 app = FastAPI()     # Публичное API
 private_app = FastAPI()  # Приватное API
 
-ALLOWED_FILE_FORMATS = ['image/jpeg', 'image/png']
-
+storage = Storage()
+database = DataBase()
 
 @app.get('/memes')
 def get_meme(meme_id: str | None = None) -> dict | list:
@@ -16,21 +19,22 @@ def get_meme(meme_id: str | None = None) -> dict | list:
 
 
 @private_app.get('/memes')
-def get_meme(meme_id: str | None = None) -> dict | list:
+def get_meme(meme_id: str | None = None):
     if meme_id is not None:
         pass
-    return
+    return StreamingResponse(storage.get_file(meme_id), media_type='image/jpeg')
 
 
 @private_app.post('/memes')
 def add_meme(picture: UploadFile, text: str):
-    if picture.content_type not in ALLOWED_FILE_FORMATS:
+    if 'image' not in picture.content_type:
         raise HTTPException(
             status_code=422,
-            detail='Неверный формат загружаемого файла. Поддерживаемые форматы: jpeg, png',
+            detail='Неверный формат загружаемого файла. Для загрузки доступны только изображения (MIME-тип "image")',
         )
+    filename = f'{text}.{picture.content_type.split("/")[1]}'
+    storage.upload_file(filename, picture.file.read())
 
-    return text
 
 
 app.mount('/private', private_app)
