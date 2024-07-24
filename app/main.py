@@ -1,14 +1,24 @@
 from typing import Annotated
+import hashlib
 
-from fastapi import FastAPI, UploadFile, HTTPException, Body
+import yaml
+from fastapi import FastAPI, UploadFile, HTTPException, Body, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uvicorn
 
 from cloud import Storage, DataBase
 
 
-app = FastAPI()     # Публичное API
-private_app = FastAPI()  # Приватное API
+app = FastAPI(title='Memes API')     # Публичное API
+private_app = FastAPI(title='Memes Private API')  # Приватное API
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth")
+
+TAGS = [
+    {
+        'name': 'Мемы',
+    },
+]
 
 storage = Storage()
 database = DataBase()
@@ -22,8 +32,38 @@ def format_page(page: int | None) -> int:
         page = 1
     return page
 
-@app.get('/memes')
+
+@private_app.post('/auth', include_in_schema=False)
+def login(credentials: Annotated[OAuth2PasswordRequestForm, Depends()]) -> dict:
+    user = database.authorization(credentials.username)
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail='Неверный логин или пароль'
+        )
+    with open('credentials.yaml', 'r') as file:
+        hash_salt = yaml.safe_load(file)['hash_salt']
+    hashed_password = hashlib.pbkdf2_hmac(
+        'sha256',
+        credentials.password.encode(),
+        hash_salt.encode(),
+        100_000).hex()
+    if not database.authorization(credentials.username, hashed_password):
+        raise HTTPException(
+            status_code=400,
+            detail='Неверный логин или пароль'
+        )
+    return {"access_token": credentials.username, "token_type": "bearer"}
+
+
+@app.get('/memes', tags=['Мемы'], name='Получить мем')
 def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | object:
+    """
+    Получить мем по его ID или список всех мемов если не передан <code>meme_id</code>
+    <h3>**Параметры**</h3>
+    * **meme_id**: ID мема
+    * **page**: Номер страницы коллекции мемов
+    """
     page = format_page(page)
     if meme_id is None:
         return {
@@ -40,8 +80,18 @@ def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | obje
     return StreamingResponse(storage.get_file(f'{meme_id}.{file_info["extension"]}'), media_type=f'image/{file_info["extension"]}')
 
 
-@private_app.get('/memes')
-def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | object:
+@private_app.get('/memes', tags=['Мемы'], name='Получить мем')
+def get_meme(
+        token: Annotated[str, Depends(oauth2_scheme)],
+        meme_id: int | None = None,
+        page: int | None = None
+) -> dict | object:
+    """
+    Получить мем по его ID или список с информацией о всех мемах если не передан <code>meme_id</code>
+    <h3>**Параметры**</h3>
+    * **meme_id**: ID мема
+    * **page**: Номер страницы коллекции мемов
+    """
     page = format_page(page)
     if meme_id is None:
         return {
@@ -53,8 +103,18 @@ def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | obje
     return StreamingResponse(storage.get_file(f'{meme_id}.{file_info["extension"]}'), media_type=f'image/{file_info["extension"]}')
 
 
-@private_app.post('/memes')
-def add_meme(picture: UploadFile, text: Annotated[str, Body()]) -> dict:
+@private_app.post('/memes', tags=['Мемы'], name='Добавить мем')
+def add_meme(
+        token: Annotated[str, Depends(oauth2_scheme)],
+        text: Annotated[str, Body()],
+        picture: UploadFile,
+) -> dict:
+    """
+    Загрузить новый мем в коллецкию
+    <h3>**Параметры**</h3>
+    * **text**: Название мема
+    * **picture**: Изображение мема
+    """
     if 'image' not in picture.content_type:
         raise HTTPException(
             status_code=422,
@@ -70,8 +130,20 @@ def add_meme(picture: UploadFile, text: Annotated[str, Body()]) -> dict:
     }
 
 
-@private_app.put('/memes')
-def update_meme(meme_id: Annotated[int, Body()], text: Annotated[str, Body()] = '', picture: UploadFile | None = None) -> dict:
+@private_app.put('/memes', tags=['Мемы'], name='Обновить мем')
+def update_meme(
+        token: Annotated[str, Depends(oauth2_scheme)],
+        meme_id: Annotated[int, Body()],
+        text: Annotated[str, Body()] = '',
+        picture: UploadFile | None = None
+) -> dict:
+    """
+    Обновить существующий мем
+    <h3>**Параметры**</h3>
+    * **meme_id**: ID мема
+    * **text**: Название мема
+    * **picture**: Изображение мема
+    """
     file_info = database.get_meme_info(meme_id)
     if not file_info:
         raise HTTPException(
@@ -81,21 +153,29 @@ def update_meme(meme_id: Annotated[int, Body()], text: Annotated[str, Body()] = 
 
     if text and picture:
         storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', picture.file.read())
-        database.update_file_info(meme_id, text, picture.content_type.split("/")[1])
+        database.update_meme_info(meme_id, text, picture.content_type.split("/")[1])
 
     elif text:
-        database.update_file_info(meme_id, text)
+        database.update_meme_info(meme_id, text)
 
     elif picture:
         storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', picture.file.read())
         if file_info['extension'] != picture.content_type.split("/")[1]:
-            database.update_file_info(meme_id, extension=picture.content_type.split("/")[1])
+            database.update_meme_info(meme_id, extension=picture.content_type.split("/")[1])
 
     return database.get_meme_info(meme_id)
 
 
-@private_app.delete('/memes')
-def delete_meme(meme_id: int) -> dict:
+@private_app.delete('/memes', tags=['Мемы'], name='Удалить мем')
+def delete_meme(
+        token: Annotated[str, Depends(oauth2_scheme)],
+        meme_id: int
+) -> dict:
+    """
+    Удалить существующий мем
+    <h3>**Параметры**</h3>
+    * **meme_id**: ID мема
+    """
     file_info = database.get_meme_info(meme_id)
     if not database.get_meme_info(meme_id):
         raise HTTPException(
@@ -103,10 +183,8 @@ def delete_meme(meme_id: int) -> dict:
             detail=f'Мем с ID {meme_id} не найден',
         )
     storage.delete_file(f'{file_info["id"]}.{file_info["extension"]}')
-    database.update_file_info(meme_id, delete=True)
+    database.update_meme_info(meme_id, delete=True)
     return database.get_meme_info(meme_id)
-
-
 
 
 app.mount('/private', private_app)

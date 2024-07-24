@@ -18,7 +18,8 @@ class DataBase:
         metadata = MetaData()
 
         engine = create_engine(
-            f'mysql+mysqlconnector://{credentials["login"]}:{credentials["password"]}@{credentials["host"]}:{credentials["port"]}/{credentials["db"]}',
+            f'mysql+mysqlconnector://{credentials["login"]}:{credentials["password"]}@'
+            f'{credentials["host"]}:{credentials["port"]}/{credentials["db"]}',
             connect_args={'ssl_ca': 'CA.pem'},
         )
         self.__connector = engine.connect()
@@ -32,6 +33,12 @@ class DataBase:
             Column('create_date', DateTime),
             Column('update_date', DateTime),
             Column('delete_date', DateTime),
+        )
+        self.__oauth = Table(
+            'oauth',
+            metadata,
+            Column('name', Text),
+            Column('password', Text),
         )
         metadata.create_all(engine)
         self.limit = 10
@@ -89,7 +96,7 @@ class DataBase:
             titles = tuple(map(lambda column: column.name, self.__info.columns))
             return dict(zip(titles, file[0]))
 
-    def update_file_info(self, file_id: int, filename: str | None = None, extension: str | None = None, delete: bool = False) -> dict | None:
+    def update_meme_info(self, file_id: int, filename: str | None = None, extension: str | None = None, delete: bool = False) -> dict | None:
         """
         Обновить информацию о файле мема
         """
@@ -108,6 +115,14 @@ class DataBase:
         query = self.__info.update().values({'delete_date': datetime.now()})
         self.__connector.execute(query)
         self.__connector.commit()
+
+    def authorization(self, name: str | None = None, password: str | None = None):
+        if not password:
+            query = self.__oauth.select().where(self.__oauth.columns.name == name)
+            return self.__connector.execute(query).fetchall()
+        if name and password:
+            query = self.__oauth.select().where(self.__oauth.columns.name == name and self.__oauth.columns.password == password)
+            return self.__connector.execute(query).fetchall()
 
 
 class Storage:
@@ -135,12 +150,6 @@ class Storage:
         :param file: Байтовая строка с содержимым файла
         """
         self.__client.put_object(Bucket=self.__bucket, Key=filename, Body=file)
-
-    def get_all_files(self):
-        storage_keys = self.__client.list_objects(Bucket=self.__bucket)
-        if 'Contents' not in storage_keys:
-            return
-        return self.__client.list_objects(Bucket=self.__bucket)['Contents']
 
     def get_file(self, filename):
         """
