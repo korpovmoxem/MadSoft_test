@@ -56,13 +56,13 @@ class DataBase:
         """
         Получить максимальное количество страниц в пагинации таблицы
         """
-        return ceil(self.__connector.execute(self.__info.select()).rowcount / self.limit)
+        return ceil(self.__connector.execute(self.__info.select().where(self.__info.columns.delete_date is None)).rowcount / self.limit)
 
     def get_all_memes(self, page: int, all_columns=False) -> list[dict]:
         """
         Получить все записи таблицы info с пагинацией
         """
-        query = self.__info.select()
+        query = self.__info.select().where(self.__info.columns.delete_date.isnot(None))
 
         if all_columns:
             query = query.with_only_columns(self.__info.columns.id, self.__info.columns.filename)
@@ -82,7 +82,7 @@ class DataBase:
         """
         Получить информацию о файле мема
         """
-        query = self.__info.select().where(self.__info.columns.id == file_id)
+        query = self.__info.select().where(self.__info.columns.id == file_id and self.__info.columns.delete_date.isnot(None))
 
         file = self.__connector.execute(query).fetchall()
         if file:
