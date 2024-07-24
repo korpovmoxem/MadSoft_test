@@ -46,7 +46,7 @@ def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | obje
 
 
 @private_app.post('/memes')
-def add_meme(picture: UploadFile, text: str):
+def add_meme(picture: UploadFile, text: str) -> dict:
     if 'image' not in picture.content_type:
         raise HTTPException(
             status_code=422,
@@ -56,6 +56,10 @@ def add_meme(picture: UploadFile, text: str):
     file_id = database.add_meme(text, media_content[1], round(picture.size / 1024 ** 2, 2))
     filename = f'{file_id}.{media_content[1]}'
     storage.upload_file(filename, picture.file.read())
+    return {
+        'id': file_id,
+        'name': text
+    }
 
 
 app.mount('/private', private_app)
