@@ -9,7 +9,7 @@ import boto3
 class DataBase:
     """
     Подключение к БД и методы работы с ней.
-    При инициализации создает подключение для многократного использования
+    При инициализации создается подключение для многократного использования
     """
 
     def __init__(self):
@@ -38,7 +38,7 @@ class DataBase:
 
     def add_meme(self, filename: str, extension: str, size_mb: float) -> int:
         """
-        Добавляет запись в БД и возвращает ID записи
+        Добавить запись в БД и возвращает ID записи
         """
         query = self.__info.insert().values(
             {
@@ -54,13 +54,13 @@ class DataBase:
 
     def get_meme_max_page(self) -> int:
         """
-        Возвращает максимальное количество страниц в пагинации таблицы
+        Получить максимальное количество страниц в пагинации таблицы
         """
         return ceil(self.__connector.execute(self.__info.select()).rowcount / self.limit)
 
     def get_all_memes(self, page: int, all_columns=False) -> list[dict]:
         """
-        Возвращает все записи таблицы info с пагинацией
+        Получить все записи таблицы info с пагинацией
         """
         query = self.__info.select()
 
@@ -78,23 +78,42 @@ class DataBase:
         data = self.__connector.execute(query).fetchall()
         return list(map(lambda row: dict(zip(titles, row)), data))
 
-    def get_extension(self, file_id: int) -> str:
+    def get_meme_info(self, file_id: int) -> dict | None:
         """
-        Возвращает расширение файла
+        Получить информацию о файле мема
         """
-        query = (
-            self.__info.select().
-            with_only_columns(self.__info.columns.extension).
-            where(self.__info.columns.id == file_id)
-        )
-        file = self.__connector.execute(query).fetchall()[0]
-        return file[0]
+        query = self.__info.select().where(self.__info.columns.id == file_id)
+
+        file = self.__connector.execute(query).fetchall()
+        if file:
+            titles = tuple(map(lambda column: column.name, self.__info.columns))
+            return dict(zip(titles, file[0]))
+
+    def update_file_info(self, file_id: int, filename: str | None = None, extension: str | None = None, delete: bool = False) -> dict | None:
+        """
+        Обновить информацию о файле мема
+        """
+        if not delete:
+            new_data = {'update_date': datetime.now()}
+            if filename:
+                new_data['filename'] = filename
+            if extension:
+                new_data['extension'] = extension
+            query = self.__info.update().values(new_data)
+            self.__connector.execute(query)
+            self.__connector.commit()
+            new_data['id'] = file_id
+            return new_data
+
+        query = self.__info.update().values({'delete_date': datetime.now()})
+        self.__connector.execute(query)
+        self.__connector.commit()
 
 
 class Storage:
     """
     Инициализация подключения к объектному хранилищу и методы работы с ним.
-    При инициализации создает подключение для многократного использования
+    При инициализации создается подключение для многократного использования
     """
 
     def __init__(self):
@@ -111,6 +130,7 @@ class Storage:
 
     def upload_file(self, filename, file: bytes):
         """
+        Загрузка файла в объектное хранилище
         :param filename: Имя файла (ID записи БД), с которым он будет загружен в хранилище.
         :param file: Байтовая строка с содержимым файла
         """
@@ -123,6 +143,18 @@ class Storage:
         return self.__client.list_objects(Bucket=self.__bucket)['Contents']
 
     def get_file(self, filename):
+        """
+        Получить файл иp объектного хранилища по его имени
+        :param filename: Имя файла с расширением (picture.png)
+        :return: Экземпляр класса StreamingResponse с содержимым файла
+        """
         file = self.__client.get_object(Bucket=self.__bucket, Key=filename)
         return file['Body']
+
+    def delete_file(self, filename):
+        """
+        Удалить файл из объектного хранилища
+        :param filename: Имя файла с расширением (picture.png)
+        """
+        self.__client.delete_objects(Bucket=self.__bucket, Key=filename)
 
