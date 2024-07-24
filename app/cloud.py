@@ -156,5 +156,5 @@ class Storage:
         Удалить файл из объектного хранилища
         :param filename: Имя файла с расширением (picture.png)
         """
-        self.__client.delete_objects(Bucket=self.__bucket, Key=filename)
+        self.__client.delete_object(Bucket=self.__bucket, Key=filename)
 
