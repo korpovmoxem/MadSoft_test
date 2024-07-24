@@ -50,7 +50,7 @@ def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | obje
             'memes': database.get_all_memes(page, all_columns=True),
         }
     file_info = database.get_meme_info(meme_id)
-    return StreamingResponse(storage.get_file(f'{meme_id}.{file_info['extension']}'), media_type=f'image/{file_info['extension']}')
+    return StreamingResponse(storage.get_file(f'{meme_id}.{file_info["extension"]}'), media_type=f'image/{file_info["extension"]}')
 
 
 @private_app.post('/memes')
@@ -71,28 +71,27 @@ def add_meme(picture: UploadFile, text: Annotated[str, Body()]) -> dict:
 
 
 @private_app.put('/memes')
-def update_meme(meme_id: Annotated[int, Body()], text: Annotated[str, Body()], picture: UploadFile | None = None) -> dict:
+def update_meme(meme_id: Annotated[int, Body()], text: Annotated[str, Body()] = '', picture: UploadFile | None = None) -> dict:
     file_info = database.get_meme_info(meme_id)
     if not file_info:
         raise HTTPException(
             status_code=404,
             detail=f'Мем с ID {meme_id} не найден',
         )
-    new_data = dict()
 
     if text and picture:
         storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', picture.file.read())
-        new_data = database.update_file_info(meme_id, text, picture.content_type.split("/")[0])
+        database.update_file_info(meme_id, text, picture.content_type.split("/")[1])
 
     elif text:
-        new_data = database.update_file_info(meme_id, text)
+        database.update_file_info(meme_id, text)
 
     elif picture:
         storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', picture.file.read())
-        if file_info['filename'] != picture.content_type.split("/")[0]:
-            new_data = database.update_file_info(meme_id, picture.content_type.split("/")[0])
+        if file_info['extension'] != picture.content_type.split("/")[1]:
+            database.update_file_info(meme_id, extension=picture.content_type.split("/")[1])
 
-    return new_data
+    return database.get_meme_info(meme_id)
 
 
 @private_app.delete('/memes')
