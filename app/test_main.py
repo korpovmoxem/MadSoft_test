@@ -43,10 +43,13 @@ def test_post_meme():
 
 def test_get_meme():
     auth = test_auth()
-    response = client.get('/memes')
+    response = client.get('/memes', headers={"Authorization": f"Bearer {auth['access_token']}"})
     assert response.status_code == 200
-    for i in response.json():
-        print(i)
+    for i in response.json()['memes']:
+        response = client.get(f'/memes?meme_id={int(i["id"])}', headers={"Authorization": f"Bearer {auth['access_token']}"})
+        assert response.status_code == 200
+    response = client.get(f'/memes?meme_id={int(len(response.json()["memes"]) + 1)}', headers={"Authorization": f"Bearer {auth['access_token']}"})
+    assert response.status_code == 404
 
 
 def test_put_meme():
