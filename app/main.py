@@ -126,7 +126,7 @@ def add_meme(
             detail='Неверный формат загружаемого файла. Для загрузки доступны только изображения (MIME-тип "image")',
         )
     media_content = image.content_type.split("/")
-    file_id = database.add_meme(text, media_content[1], round(image.size / 1024 ** 2, 2))
+    file_id = database.add_meme(text, media_content[1], round(image.size / 1024 ** 2, 4))
     filename = f'{file_id}.{media_content[1]}'
     storage.upload_file(filename, image.file.read())
     return {
