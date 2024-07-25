@@ -37,5 +37,6 @@ def test_post_meme():
             )
         if 'txt' in file_extension:
             assert response.status_code == 422
-        assert response.status_code == 200
+        else:
+            assert response.status_code == 200
 
