@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uvicorn
 
-from app.cloud import Storage, DataBase
+from cloud import Storage, DataBase
 
 
 app = FastAPI(title='Memes API')     # Публичное API

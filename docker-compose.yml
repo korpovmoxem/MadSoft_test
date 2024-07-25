@@ -26,3 +26,4 @@ services:
     environment:
       - MINIO_ROOT_USER=madsoft
       - MINIOT_ROOT_PASSWORD=madsoft
+      - MINIO_DEFAULT_BUCKETS=memes

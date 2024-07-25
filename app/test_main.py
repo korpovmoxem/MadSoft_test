@@ -2,7 +2,7 @@ import os
 
 from fastapi.testclient import TestClient
 
-from .main import app, private_app
+from main import app, private_app
 
 client = TestClient(private_app)
 public_client = TestClient(app)
