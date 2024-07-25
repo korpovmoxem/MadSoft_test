@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uvicorn
 
-from cloud import Storage, DataBase
+from app.cloud import Storage, DataBase
 
 
 app = FastAPI(title='Memes API')     # Публичное API
@@ -107,23 +107,23 @@ def get_meme(
 def add_meme(
         token: Annotated[str, Depends(oauth2_scheme)],
         text: Annotated[str, Body()],
-        picture: UploadFile,
+        image: UploadFile,
 ) -> dict:
     """
     Загрузить новый мем в коллецкию
     <h3>**Параметры**</h3>
     * **text**: Название мема
-    * **picture**: Изображение мема
+    * **image**: Изображение мема
     """
-    if 'image' not in picture.content_type:
+    if 'image' not in image.content_type:
         raise HTTPException(
             status_code=422,
             detail='Неверный формат загружаемого файла. Для загрузки доступны только изображения (MIME-тип "image")',
         )
-    media_content = picture.content_type.split("/")
-    file_id = database.add_meme(text, media_content[1], round(picture.size / 1024 ** 2, 2))
+    media_content = image.content_type.split("/")
+    file_id = database.add_meme(text, media_content[1], round(image.size / 1024 ** 2, 2))
     filename = f'{file_id}.{media_content[1]}'
-    storage.upload_file(filename, picture.file.read())
+    storage.upload_file(filename, image.file.read())
     return {
         'id': file_id,
         'name': text
@@ -135,14 +135,14 @@ def update_meme(
         token: Annotated[str, Depends(oauth2_scheme)],
         meme_id: Annotated[int, Body()],
         text: Annotated[str, Body()] = '',
-        picture: UploadFile | None = None
+        image: UploadFile | None = None
 ) -> dict:
     """
     Обновить существующий мем
     <h3>**Параметры**</h3>
     * **meme_id**: ID мема
     * **text**: Название мема
-    * **picture**: Изображение мема
+    * **image**: Изображение мема
     """
     file_info = database.get_meme_info(meme_id)
     if not file_info:
@@ -151,17 +151,17 @@ def update_meme(
             detail=f'Мем с ID {meme_id} не найден',
         )
 
-    if text and picture:
-        storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', picture.file.read())
-        database.update_meme_info(meme_id, text, picture.content_type.split("/")[1])
+    if text and image:
+        storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', image.file.read())
+        database.update_meme_info(meme_id, text, image.content_type.split("/")[1])
 
     elif text:
         database.update_meme_info(meme_id, text)
 
-    elif picture:
-        storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', picture.file.read())
-        if file_info['extension'] != picture.content_type.split("/")[1]:
-            database.update_meme_info(meme_id, extension=picture.content_type.split("/")[1])
+    elif image:
+        storage.upload_file(f'{file_info["id"]}.{file_info["extension"]}', image.file.read())
+        if file_info['extension'] != image.content_type.split("/")[1]:
+            database.update_meme_info(meme_id, extension=image.content_type.split("/")[1])
 
     return database.get_meme_info(meme_id)
 
