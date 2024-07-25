@@ -100,6 +100,11 @@ def get_meme(
             'memes': database.get_all_memes(page, all_columns=True),
         }
     file_info = database.get_meme_info(meme_id)
+    if not file_info:
+        raise HTTPException(
+            status_code=404,
+            detail=f'Мем с ID {meme_id} не найден',
+        )
     return StreamingResponse(storage.get_file(f'{meme_id}.{file_info["extension"]}'), media_type=f'image/{file_info["extension"]}')
 
 
