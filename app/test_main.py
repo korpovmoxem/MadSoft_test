@@ -39,3 +39,14 @@ def test_post_meme():
             assert response.status_code == 422
         assert response.status_code == 200
 
+
+def test_get_meme():
+    auth = test_auth()
+    response = client.get('/memes')
+    assert response.status_code == 200
+    for i in response.json():
+        print(i)
+
+
+def test_put_meme():
+    pass
