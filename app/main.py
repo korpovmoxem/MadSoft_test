@@ -66,10 +66,16 @@ def get_meme(meme_id: int | None = None, page: int | None = None) -> dict | obje
     """
     page = format_page(page)
     if meme_id is None:
+        memes_collection = database.get_all_memes(page)
+        if not memes_collection:
+            raise HTTPException(
+                status_code=404,
+                detail=f'Коллекция мемов пуста',
+            )
         return {
             'page': page,
             'max_page': database.get_meme_max_page(),
-            'memes': database.get_all_memes(page),
+            'memes': memes_collection,
         }
     file_info = database.get_meme_info(meme_id)
     if not file_info:
@@ -94,10 +100,16 @@ def get_meme(
     """
     page = format_page(page)
     if meme_id is None:
+        memes_collection = database.get_all_memes(page, all_columns=True)
+        if not memes_collection:
+            raise HTTPException(
+                status_code=404,
+                detail=f'Коллекция мемов пуста',
+            )
         return {
             'page': page,
             'max_page': database.get_meme_max_page(),
-            'memes': database.get_all_memes(page, all_columns=True),
+            'memes': memes_collection,
         }
     file_info = database.get_meme_info(meme_id)
     if not file_info:

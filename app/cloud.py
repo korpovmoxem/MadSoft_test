@@ -24,7 +24,7 @@ class DataBase:
         )
         self.__connector = engine.connect()
         self.__info = Table(
-            'info',
+            'info1',
             metadata,
             Column('id', Integer, primary_key=True, autoincrement=True),
             Column('filename', Text),
@@ -63,13 +63,13 @@ class DataBase:
         """
         Получить максимальное количество страниц в пагинации таблицы
         """
-        return ceil(self.__connector.execute(self.__info.select().where(self.__info.columns.delete_date is None)).rowcount / self.limit)
+        return ceil(self.__connector.execute(self.__info.select().where(self.__info.columns.delete_date.is_(None))).rowcount / self.limit)
 
     def get_all_memes(self, page: int, all_columns=False) -> list[dict]:
         """
         Получить все записи таблицы info с пагинацией
         """
-        query = self.__info.select().where(self.__info.columns.delete_date.isnot(None))
+        query = self.__info.select().where(self.__info.columns.delete_date.is_(None))
 
         if all_columns:
             query = query.with_only_columns(self.__info.columns.id, self.__info.columns.filename)
@@ -82,6 +82,7 @@ class DataBase:
         else:
             query = query.limit((page + 1) * self.limit).offset(page * self.limit)
 
+        print(query)
         data = self.__connector.execute(query).fetchall()
         return list(map(lambda row: dict(zip(titles, row)), data))
 
@@ -89,7 +90,7 @@ class DataBase:
         """
         Получить информацию о файле мема
         """
-        query = self.__info.select().where(self.__info.columns.id == file_id and self.__info.columns.delete_date.isnot(None))
+        query = self.__info.select().where(self.__info.columns.id == file_id and self.__info.columns.delete_date.is_(None))
 
         file = self.__connector.execute(query).fetchall()
         if file:
