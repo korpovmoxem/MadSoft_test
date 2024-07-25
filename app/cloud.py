@@ -71,9 +71,9 @@ class DataBase:
         query = self.__info.select().where(self.__info.columns.delete_date.is_(None))
 
         if all_columns:
-            query = query.with_only_columns(self.__info.columns.id, self.__info.columns.filename)
             titles = tuple(map(lambda column: column.name, self.__info.columns))
         else:
+            query = query.with_only_columns(self.__info.columns.id, self.__info.columns.filename)
             titles = ('id', 'name')
 
         if page == 1:
@@ -81,7 +81,6 @@ class DataBase:
         else:
             query = query.limit((page + 1) * self.limit).offset(page * self.limit)
 
-        print(query)
         data = self.__connector.execute(query).fetchall()
         return list(map(lambda row: dict(zip(titles, row)), data))
 
@@ -106,13 +105,13 @@ class DataBase:
                 new_data['filename'] = filename
             if extension:
                 new_data['extension'] = extension
-            query = self.__info.update().values(new_data)
+            query = self.__info.update().values(new_data).where(self.__info.columns.id == file_id)
             self.__connector.execute(query)
             self.__connector.commit()
             new_data['id'] = file_id
             return new_data
 
-        query = self.__info.update().values({'delete_date': datetime.now()})
+        query = self.__info.update().values({'delete_date': datetime.now()}).where(self.__info.columns.id == file_id)
         self.__connector.execute(query)
         self.__connector.commit()
 

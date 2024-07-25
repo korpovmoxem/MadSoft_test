@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from .main import app, private_app
 
 client = TestClient(private_app)
+public_client = TestClient(app)
 
 
 def test_auth() -> dict:
@@ -59,10 +60,32 @@ def test_put_meme():
     auth = test_auth()
     memes_collection = client.get('/memes', headers={"Authorization": f"Bearer {auth['access_token']}"})
     meme_info = memes_collection.json()["memes"][0]
-    client.put(
-        f'/memes?meme_id={meme_info['id']}',
+    response = client.put(
+        '/memes',
         headers={"Authorization": f"Bearer {auth['access_token']}"},
         data={
-            'text': f'{meme_info["filename"]}_new.{meme_info["extension"]}'
+            'meme_id': meme_info['id'],
+            'text': f'{meme_info["filename"]}_new'
         }
     )
+    assert response.status_code == 200
+
+
+def test_delete_meme():
+    auth = test_auth()
+    memes_collection = client.get('/memes', headers={"Authorization": f"Bearer {auth['access_token']}"})
+    meme_info = memes_collection.json()["memes"][0]
+    response = client.delete(
+        f'/memes?meme_id={meme_info["id"]}',
+        headers={"Authorization": f"Bearer {auth['access_token']}"},
+    )
+    assert response.status_code == 200
+
+
+def test_get_meme_public():
+    memes_collection = public_client.get('/memes')
+    assert memes_collection.status_code == 200
+    for page in range(memes_collection.json()['max_page']):
+        memes_page = public_client.get(f'/memes?page={page}')
+        assert memes_page.status_code == 200
+
