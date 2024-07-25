@@ -1,5 +1,8 @@
 FROM python:latest
 WORKDIR /app
-COPY . /app
-RUN pip install -r requirements.txt
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY /app /app
+CMD ["python", "test-main.py"]
 CMD ["python", "main.py"]
