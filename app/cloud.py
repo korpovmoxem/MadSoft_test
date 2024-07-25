@@ -23,7 +23,7 @@ class DataBase:
         )
         self.__connector = engine.connect()
         self.__info = Table(
-            'info1',
+            'info',
             metadata,
             Column('id', Integer, primary_key=True, autoincrement=True),
             Column('filename', Text),

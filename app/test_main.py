@@ -44,14 +44,25 @@ def test_post_meme():
 def test_get_meme():
     auth = test_auth()
     memes_collection = client.get('/memes', headers={"Authorization": f"Bearer {auth['access_token']}"})
-    print(memes_collection.json())
     assert memes_collection.status_code == 200
     for i in memes_collection.json()['memes']:
         response = client.get(f'/memes?meme_id={int(i["id"])}', headers={"Authorization": f"Bearer {auth['access_token']}"})
         assert response.status_code == 200
-    response = client.get(f'/memes?meme_id={len(memes_collection.json()["memes"]) + 1}', headers={"Authorization": f"Bearer {auth['access_token']}"})
+    response = client.get(
+        f'/memes?meme_id={len(memes_collection.json()["memes"]) + 1}',
+        headers={"Authorization": f"Bearer {auth['access_token']}"}
+    )
     assert response.status_code == 404
 
 
 def test_put_meme():
     auth = test_auth()
+    memes_collection = client.get('/memes', headers={"Authorization": f"Bearer {auth['access_token']}"})
+    meme_info = memes_collection.json()["memes"][0]
+    client.put(
+        f'/memes?meme_id={meme_info['id']}',
+        headers={"Authorization": f"Bearer {auth['access_token']}"},
+        data={
+            'text': f'{meme_info["filename"]}_new.{meme_info["extension"]}'
+        }
+    )
