@@ -16,7 +16,6 @@ class DataBase:
         with open('credentials.yaml', 'r') as file:
             credentials = yaml.safe_load(file)['mysql']
         metadata = MetaData()
-
         engine = create_engine(
             f'mysql+mysqlconnector://{credentials["login"]}:{credentials["password"]}@'
             f'{credentials["host"]}:{credentials["port"]}/{credentials["db"]}',
