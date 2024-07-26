@@ -1,29 +1,37 @@
+version: "3"
+
 services:
   web:
     build: .
-    command: python3 main.py
+    command: bash -c "pytest && python3 main.py"
     depends_on:
-      - mysql
-      - storage
-    volumes:
-      - .:/app
+      mysql:
+        condition: service_healthy
     ports:
-      - 8000:8000
+      - "8000:8000"
+
   mysql:
     image: mysql:latest
     restart: always
     ports:
-      - 8080:8080
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: madsoft
       MYSQL_DATABASE: memes
       MYSQL_USER: madsoft
       MYSQL_PASSWORD: madsoft
+      MYSQL_ALLOW_EMPTY_PASSWORD: yes
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 5s
+      retries: 20
+
   storage:
     image: bitnami/minio:latest
     ports:
-      - 9000:9000
+      - "9000:9000"
+      - '9001:9001'
     environment:
-      - MINIO_ROOT_USER=madsoft
-      - MINIOT_ROOT_PASSWORD=madsoft
-      - MINIO_DEFAULT_BUCKETS=memes
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=root_password
+      - MINIO_DEFAULT_BUCKETS=memes:public

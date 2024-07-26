@@ -74,12 +74,13 @@ def test_put_meme():
 def test_delete_meme():
     auth = test_auth()
     memes_collection = client.get('/memes', headers={"Authorization": f"Bearer {auth['access_token']}"})
-    meme_info = memes_collection.json()["memes"][0]
-    response = client.delete(
-        f'/memes?meme_id={meme_info["id"]}',
-        headers={"Authorization": f"Bearer {auth['access_token']}"},
-    )
-    assert response.status_code == 200
+    for meme in memes_collection.json()['memes']:
+        if 'test' in meme['filename']:
+            response = client.delete(
+                f'/memes?meme_id={meme["id"]}',
+                headers={"Authorization": f"Bearer {auth['access_token']}"},
+            )
+            assert response.status_code == 200
 
 
 def test_get_meme_public():

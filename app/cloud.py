@@ -1,9 +1,11 @@
 from datetime import datetime
 from math import ceil
+import hashlib
 
 from sqlalchemy import MetaData, Text, DateTime, Table, Column, create_engine, Integer, Float
 import yaml
 import boto3
+from botocore.client import Config, UNSIGNED
 
 
 class DataBase:
@@ -14,12 +16,13 @@ class DataBase:
 
     def __init__(self):
         with open('credentials.yaml', 'r') as file:
-            credentials = yaml.safe_load(file)['mysql']
+            file_data = yaml.safe_load(file)
+            credentials = file_data['mysql']
+            self.__hash_salt = file_data['hash_salt']
         metadata = MetaData()
         engine = create_engine(
             f'mysql+mysqlconnector://{credentials["login"]}:{credentials["password"]}@'
-            f'{credentials["host"]}:{credentials["port"]}/{credentials["db"]}',
-            connect_args={'ssl_ca': 'CA.pem'},
+            f'mysql:3306/{credentials["db"]}',
         )
         self.__connector = engine.connect()
         self.__info = Table(
@@ -41,6 +44,29 @@ class DataBase:
         )
         metadata.create_all(engine)
         self.limit = 10
+
+        # Создание первичного логопаса
+        if not self.__get_auth():
+            password = hashlib.pbkdf2_hmac(
+                'sha256',
+                'madsoft'.encode(),
+                self.__hash_salt.encode(),
+                100_000).hex()
+            self.__add_auth('madsoft', password)
+
+    def __add_auth(self, name, password):
+        query = self.__oauth.insert().values(
+            {
+                'name': name,
+                'password': hashlib.pbkdf2_hmac('sha256' ,password.encode(), self.__hash_salt.encode(), 100_000).hex()
+            }
+        )
+        self.__connector.execute(query)
+        self.__connector.commit()
+
+    def __get_auth(self):
+        query = self.__oauth.select()
+        return self.__connector.execute(query).fetchall()
 
     def add_meme(self, filename: str, extension: str, size_mb: float) -> int:
         """
@@ -137,9 +163,8 @@ class Storage:
         self.__bucket = credentials['bucket']
         self.__client = session.client(
             service_name='s3',
-            aws_access_key_id=credentials['access_key'],
-            aws_secret_access_key=credentials['secret_key'],
-            endpoint_url='https://storage.yandexcloud.net'
+            config=Config(signature_version=UNSIGNED),
+            endpoint_url=credentials['endpoint_url'],
         )
 
     def upload_file(self, filename, file: bytes):
