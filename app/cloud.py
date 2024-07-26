@@ -177,7 +177,7 @@ class Storage:
 
     def get_file(self, filename):
         """
-        Получить файл иp объектного хранилища по его имени
+        Получить файл из объектного хранилища по его имени
         :param filename: Имя файла с расширением (picture.png)
         :return: Экземпляр класса StreamingResponse с содержимым файла
         """
