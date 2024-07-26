@@ -1,6 +1,6 @@
 # Memes API
 
-## _Тестовое задание: Python Developer MadSoft_
+_Тестовое задание: Python Developer MadSoft_
 
 ## Содержание ##
 - [О проекте](#about)
